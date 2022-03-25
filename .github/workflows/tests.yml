@@ -1,0 +1,44 @@
+name: test brew
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Casks/**'
+
+env:
+  HOMEBREW_DEVELOPER: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_PAT }}
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - name: Set up Homebrew
+        run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v2
+        id: changed-formulas
+        with:
+          list-files: shell
+          filters: |
+            formulas:
+              - added|modified: './Casks/*.rb'
+
+      - name: brew audit
+        if: steps.changed-formulas.outputs.formulas == 'true'
+        run: brew audit --strict --except audit_check_sha256_no_check_if_unversioned --casks ${{ steps.changed-formulas.outputs.formulas_files }}
+
+      - name: brew install
+        if: steps.changed-formulas.outputs.formulas == 'true'
+        run: brew install --require-sha --casks ${{ steps.changed-formulas.outputs.formulas_files }}
+
+      - name: brew uninstall
+        if: steps.changed-formulas.outputs.formulas == 'true'
+        run: brew uninstall --zap --casks ${{ steps.changed-formulas.outputs.formulas_files }}

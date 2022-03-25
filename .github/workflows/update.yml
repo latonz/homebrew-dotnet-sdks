@@ -1,0 +1,51 @@
+name: update
+on:
+  schedule:
+    - cron: '0 8 * * *' # once daily
+  workflow_dispatch:
+    inputs:
+      reset_state:
+        description: 'set to true if the state should be resetted and all formulas should get recreated'
+        required: false
+        default: 'false'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - 'Casks/**'
+      - state.json
+  push:
+    branches: [ main ]
+concurrency: update-dotnet-sdks
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Reset state
+        if: github.event.inputs.reset_state == 'true'
+        run: rm state.json
+
+      - uses: actions/setup-dotnet@v1
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Run updater
+        run: dotnet script ./Update.csx
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v3
+        id: cpr
+        if: github.event_name != 'pull_request'
+        with:
+          token: ${{ secrets.GH_PAT }}
+          branch: 'auto/update-formulas'
+          title: 'Update formulas'
+          body: 'Update formulas (created by auto updater)'
+          commit-message: 'Update formulas (created by auto updater)'
+          delete-branch: true
+          assignees: latonz
