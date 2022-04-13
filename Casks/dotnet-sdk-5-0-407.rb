@@ -1,11 +1,11 @@
-cask "dotnet-sdk-3-1" do
-    version "3.1.418,3.1.24"
+cask "dotnet-sdk-5-0-407" do
+    version "5.0.407,5.0.16"
     
-    url "https://download.visualstudio.microsoft.com/download/pr/f17f207a-238e-4694-bb47-07390495be24/635ab97f7f0e24e444b6f2be58f616e8/dotnet-sdk-#{version.before_comma}-osx-x64.pkg"
-    sha256 "5dfbaca46231c3bfae6a1493b98893fd9dbebd178678774b82040c936d413f84"
-    pkg "dotnet-sdk-3.1.418-osx-x64.pkg"
+    url "https://download.visualstudio.microsoft.com/download/pr/b5abafee-b221-4765-857f-06c60e99d9e9/29d8b1073f7da4e19606ff4f116450f6/dotnet-sdk-#{version.before_comma}-osx-x64.pkg"
+    sha256 "c5719b150c093eb5b8c487a372643e9630f59d3d318250286f29217c41e72e37"
+    pkg "dotnet-sdk-5.0.407-osx-x64.pkg"
 
-    name ".NET Core SDK 3.1.418,3.1.24"
+    name ".NET SDK 5.0.407,5.0.16"
     desc "Developer platform"
     homepage "https://www.microsoft.com/net/core#macos"
 
