@@ -1,4 +1,4 @@
-cask "dotnet-sdk-3-1" do
+cask "dotnet-sdk-3-1-426" do
     version "3.1.426,3.1.32"
     
     url "https://download.visualstudio.microsoft.com/download/pr/c319dd8b-4ea5-473e-8609-c36f31c8186e/c9633afb3084888a8c62fa224512050b/dotnet-sdk-#{version.before_comma}-osx-x64.pkg"
