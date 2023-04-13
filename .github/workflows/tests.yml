@@ -31,13 +31,22 @@ jobs:
             formulas:
               - added|modified: './Casks/*.rb'
 
-      - name: brew audit
-        if: steps.changed-formulas.outputs.formulas == 'true'
-        run: brew audit --strict --except audit_check_sha256_no_check_if_unversioned --casks ${{ steps.changed-formulas.outputs.formulas_files }}
+      # changed-formulas outputs file paths, some steps require file names
+      # replace the path prefix / suffix
+      - id: changed-formulas-filenames
+        uses: ashley-taylor/regex-property-action@v1.3
+        with:
+          value: ${{ steps.changed-formulas.outputs.formulas_files }}
+          regex: 'Casks\/(.*)\.rb'
+          replacement: '$1'
 
       - name: brew install
         if: steps.changed-formulas.outputs.formulas == 'true'
         run: brew install --require-sha --casks ${{ steps.changed-formulas.outputs.formulas_files }}
+
+      - name: brew audit
+        if: steps.changed-formulas.outputs.formulas == 'true'
+        run: brew audit --strict --except audit_check_sha256_no_check_if_unversioned --casks ${{ steps.changed-formulas-filenames.outputs.value }}
 
       - name: brew uninstall
         if: steps.changed-formulas.outputs.formulas == 'true'
