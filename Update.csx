@@ -148,7 +148,7 @@ string BuildFormula(Formula formula)
         ""com.microsoft.netstandard.pack.targeting.*.#{{version.before_comma}}.*"",
     ]
 
-    zap trash: [""~/.dotnet"", ""~/.nuget""]
+    zap trash: [""~/.dotnet"", ""~/.nuget"", ""/etc/paths.d/dotnet"", ""/etc/paths.d/dotnet-cli-tools""]
 end
 ";
 }
