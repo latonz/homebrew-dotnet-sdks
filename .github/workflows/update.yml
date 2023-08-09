@@ -19,6 +19,8 @@ concurrency: update-dotnet-sdks
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -37,15 +39,6 @@ jobs:
       - name: Run updater
         run: dotnet script ./Update.csx
 
-      - name: Create PR
-        uses: peter-evans/create-pull-request@v3
-        id: cpr
-        if: github.event_name != 'pull_request'
+      - uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          token: ${{ secrets.GH_PAT }}
-          branch: 'auto/update-formulas'
-          title: 'Update formulas'
-          body: 'Update formulas (created by auto updater)'
-          commit-message: 'Update formulas (created by auto updater)'
-          delete-branch: true
-          assignees: latonz
+          commit_message: Update formulas
