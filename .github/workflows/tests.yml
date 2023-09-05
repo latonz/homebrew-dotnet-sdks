@@ -34,7 +34,7 @@ jobs:
       # changed-formulas outputs file paths, some steps require file names
       # replace the path prefix / suffix
       - id: changed-formulas-filenames
-        uses: ashley-taylor/regex-property-action@v1.3
+        uses: ashley-taylor/regex-property-action@v1.4
         with:
           value: ${{ steps.changed-formulas.outputs.formulas_files }}
           regex: 'Casks\/(.*)\.rb'
