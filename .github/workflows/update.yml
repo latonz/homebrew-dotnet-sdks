@@ -31,7 +31,7 @@ jobs:
         if: github.event.inputs.reset_state == 'true'
         run: rm state.json
 
-      - uses: actions/setup-dotnet@v3
+      - uses: actions/setup-dotnet@v4
 
       - name: Restore tools
         run: dotnet tool restore
