@@ -1,4 +1,4 @@
-cask "dotnet-sdk-8-0" do
+cask "dotnet-sdk-8-0-101" do
     version "8.0.101,8.0.1"
     
     if Hardware::CPU.intel?
