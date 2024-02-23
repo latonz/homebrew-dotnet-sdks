@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       reset_state:
-        description: 'set to true if the state should be resetted and all formulas should get recreated'
-        required: false
-        default: 'false'
+        type: boolean
+        description: 'activate if the state should be cleared and all formulas should get recreated'
+        default: false
   pull_request:
     branches: [ main ]
     paths-ignore:
@@ -32,13 +32,19 @@ jobs:
         run: rm state.json
 
       - uses: actions/setup-dotnet@v4
+        
+      - name: build
+        run: dotnet build
 
-      - name: Restore tools
-        run: dotnet tool restore
-
-      - name: Run updater
-        run: dotnet script ./Update.csx
+      - name: run
+        run: dotnet run --no-build
+      
+      - name: read changes
+        id: changes-summary
+        uses: juliangruber/read-file-action@v1
+        with:
+          path: ./changes-summary.txt
 
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: Update formulas
+          commit_message: ${{ steps.changes-summary.outputs.content }}
