@@ -8,6 +8,10 @@ on:
         type: boolean
         description: 'activate if the state should be cleared and all formulas should get recreated'
         default: false
+      reset_latest_release_date:
+        type: boolean
+        description: 'activate if the min release date should be cleared'
+        default: false
   pull_request:
     branches: [ main ]
     paths-ignore:
@@ -31,6 +35,9 @@ jobs:
         if: github.event.inputs.reset_state == 'true'
         run: rm state.json
 
+      - name: Set reset min release date environment variable
+        run: echo "RESET_LATEST_RELEASE_DATE=${{ github.event.inputs.reset_latest_release_date }}" >> $GITHUB_ENV
+
       - uses: actions/setup-dotnet@v4
         
       - name: build
@@ -38,7 +45,7 @@ jobs:
 
       - name: run
         run: dotnet run --no-build
-      
+
       - name: read changes
         id: changes-summary
         uses: juliangruber/read-file-action@v1

@@ -75,8 +75,14 @@ async Task<State> LoadState()
         return new State();
     
     await using var stream = File.OpenRead(stateFile);
-    return await JsonSerializer.DeserializeAsync<State>(stream)
-        ?? new State();
+    var loadedState = await JsonSerializer.DeserializeAsync<State>(stream) ?? new State();
+
+    if (string.Equals("true", Environment.GetEnvironmentVariable("RESET_LATEST_RELEASE_DATE"), StringComparison.OrdinalIgnoreCase))
+    {
+        loadedState.LatestReleaseDate = DateOnly.MinValue;
+    }
+
+    return loadedState;
 }
 
 async Task StoreState(State stateToStore)
