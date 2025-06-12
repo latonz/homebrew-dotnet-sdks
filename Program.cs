@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using NuGet.Versioning;
 
 const string releaseIndexUrl = "https://raw.githubusercontent.com/dotnet/core/main/release-notes/releases-index.json";
 const string intelRuntimeId = "osx-x64";
@@ -13,11 +14,15 @@ const string changesSummaryFile = "changes-summary.txt";
 const int hashBufferLength = 4096;
 
 await using var changesSummaryWriter = new StreamWriter(File.OpenWrite(changesSummaryFile));
-var stateJsonOpts = new JsonSerializerOptions { WriteIndented = true };
+var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+{
+    WriteIndented = true,
+    Converters = { NuGetVersionJsonConverter.Instance }
+};
 
 var state = await LoadState();
 using var client = new HttpClient();
-var releasesIndex = await client.GetFromJsonAsync<ReleaseIndexList>(releaseIndexUrl)
+var releasesIndex = await client.GetFromJsonAsync<ReleaseIndexList>(releaseIndexUrl, jsonOptions)
     ?? throw new Exception("Could not fetch release index list");
 
 await changesSummaryWriter.WriteLineAsync("Updating formulas");
@@ -26,7 +31,7 @@ Log("processing releases after " + state.LatestReleaseDate);
 
 foreach (var releaseIndex in releasesIndex.ReleasesIndex.Where(x => x.LatestReleaseDate > state.LatestReleaseDate))
 {
-    var releases = await client.GetFromJsonAsync<ReleaseList>(releaseIndex.ReleasesUrl)
+    var releases = await client.GetFromJsonAsync<ReleaseList>(releaseIndex.ReleasesUrl, jsonOptions)
         ?? throw new Exception("Could not fetch releases");
 
     foreach (var release in releases.Releases.Where(x => x.ReleaseDate > state.LatestReleaseDate))
@@ -74,7 +79,7 @@ async Task<State> LoadState()
         return new State();
     
     await using var stream = File.OpenRead(stateFile);
-    var loadedState = await JsonSerializer.DeserializeAsync<State>(stream) ?? new State();
+    var loadedState = await JsonSerializer.DeserializeAsync<State>(stream, jsonOptions) ?? new State();
 
     if (string.Equals("true", Environment.GetEnvironmentVariable("RESET_LATEST_RELEASE_DATE"), StringComparison.OrdinalIgnoreCase))
     {
@@ -87,7 +92,7 @@ async Task<State> LoadState()
 async Task StoreState(State stateToStore)
 {
     await using var stream = File.Create(stateFile);
-    await JsonSerializer.SerializeAsync(stream, stateToStore, stateJsonOpts);
+    await JsonSerializer.SerializeAsync(stream, stateToStore, jsonOptions);
 }
 
 void Log(string msg) => Console.WriteLine(msg);
@@ -105,7 +110,7 @@ async Task<FormulaVariant> BuildVariant(HttpClient httpClient, Release release, 
         PkgName = sdkFile.Url.Split("/").Last(),
         Sha256 = sha256,
         DownloadUrl = sdkFile.Url,
-        DownloadUrlWithVersionPlaceholder = sdkFile.Url.Replace(release.Sdk.Version, "#{version.before_comma}"),
+        DownloadUrlWithVersionPlaceholder = sdkFile.Url.Replace(release.Sdk.Version.ToNormalizedString(), "#{version.before_comma}"),
     };
 }
 
@@ -209,15 +214,7 @@ string BuildFormulaVariant(FormulaVariant formulaVariant, int indentLevel)
 
 class State
 {
-    [JsonIgnore]
-    public HashSet<string> KnownSdkVersions { get; set; } = [];
-
-    [JsonPropertyName(nameof(KnownSdkVersions))]
-    public IEnumerable<string> SortedKnownSdkVersions
-    {
-        get => KnownSdkVersions.OrderBy(x => x);
-        init => KnownSdkVersions = [..value];
-    }
+    public SortedSet<NuGetVersion> KnownSdkVersions { get; set; } = new();
 
     public DateOnly LatestReleaseDate { get; set; }
 }
@@ -228,16 +225,16 @@ class Formula
 
     public string FilePath => Path.GetFullPath(Path.Combine(".", "Casks", Id + ".rb"));
 
-    public string ChannelOrSdkVersion => Channel ?? SdkVersion;
+    public string ChannelOrSdkVersion => Channel ?? SdkVersion.ToNormalizedString();
 
     public string? Channel { get; set; }
 
-    public string SdkVersion { get; set; } = string.Empty;
+    public required NuGetVersion SdkVersion { get; init; }
 
     /// <summary>
     /// Gets or sets the release version.
     /// </summary>
-    public string ReleaseVersion { get; set; } = string.Empty;
+    public required NuGetVersion ReleaseVersion { get; set; }
 
     /// <summary>
     /// Gets or sets the product.
@@ -292,7 +289,7 @@ class ReleaseList
     public required string ChannelVersion { get; init; }
 
     [JsonPropertyName("latest-sdk")]
-    public required string LatestSdk { get; init; }
+    public required NuGetVersion LatestSdk { get; init; }
 
     public required List<Release> Releases { get; init; }
 }
@@ -303,14 +300,14 @@ class Release
     public required DateOnly ReleaseDate { get; init; }
 
     [JsonPropertyName("release-version")]
-    public required string ReleaseVersion { get; init; }
+    public required NuGetVersion ReleaseVersion { get; init; }
 
     public required SdkRelease Sdk { get; init; }
 }
 
 class SdkRelease
 {
-    public required string Version { get; init; }
+    public required NuGetVersion Version { get; init; }
     public required List<ReleaseFile> Files { get; init; }
 }
 
@@ -326,4 +323,32 @@ class ReleaseFile
     /// SHA512
     /// </summary>
     public required string Hash { get; init; }
+}
+
+class NuGetVersionJsonConverter : JsonConverter<NuGetVersion>
+{
+    public static readonly NuGetVersionJsonConverter Instance = new();
+    
+    private NuGetVersionJsonConverter()
+    {
+    }
+    
+    public override NuGetVersion? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var versionString = reader.GetString();
+        if (versionString == null)
+            return null;
+
+        if (NuGetVersion.TryParse(versionString, out var version))
+        {
+            return version;
+        }
+
+        throw new JsonException($"Invalid NuGetVersion: '{versionString}'");
+    }
+
+    public override void Write(Utf8JsonWriter writer, NuGetVersion value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToNormalizedString());
+    }
 }
