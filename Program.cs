@@ -98,7 +98,7 @@ async Task<FormulaVariant> BuildVariant(HttpClient httpClient, Release release, 
     // we cannot use the provided hash since its sha512
     // but homebrew requires sha256
     var (sha256, sha512) = await ComputeHash(httpClient, sdkFile.Url);
-    if (!string.Equals(sha512, sdkFile.Hash))
+    if (!string.Equals(sha512, sdkFile.Hash, StringComparison.OrdinalIgnoreCase))
         throw new Exception($"Hash verification of {sdkFile.Url} failed");
     
     return new FormulaVariant
@@ -130,19 +130,8 @@ async Task<(string Sha256, string Sha512)> ComputeHash(HttpClient httpClient, st
 
     ArrayPool<byte>.Shared.Return(buffer);
     return (
-        HashAsHex(sha256.GetCurrentHash()),
-        HashAsHex(sha512.GetCurrentHash()));
-}
-
-string HashAsHex(IReadOnlyCollection<byte> hash)
-{
-    var sb = new StringBuilder(hash.Count * 2);
-    foreach (var hashByte in hash)
-    {
-        sb.Append(hashByte.ToString("x2"));
-    }
-
-    return sb.ToString();
+        Convert.ToHexString(sha256.GetCurrentHash()),
+        Convert.ToHexString(sha512.GetCurrentHash()));
 }
 
 async Task StoreFormula(TextWriter changesWriter, Formula formula)
