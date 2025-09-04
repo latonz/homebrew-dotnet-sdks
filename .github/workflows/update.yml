@@ -38,7 +38,7 @@ jobs:
       - name: Set reset min release date environment variable
         run: echo "RESET_LATEST_RELEASE_DATE=${{ github.event.inputs.reset_latest_release_date }}" >> $GITHUB_ENV
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         
       - name: build
         run: dotnet build
