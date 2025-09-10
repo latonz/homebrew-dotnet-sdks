@@ -1,17 +1,17 @@
-cask "dotnet-sdk-8-0" do
-    version "8.0.414,8.0.20"
+cask "dotnet-sdk-9-0-305" do
+    version "9.0.305,9.0.9"
     
     if Hardware::CPU.intel?
         url "https://builds.dotnet.microsoft.com/dotnet/Sdk/#{version.before_comma}/dotnet-sdk-#{version.before_comma}-osx-x64.pkg"
-        sha256 "6EA82992EA66A75325D7A5FFE10BF2FACE4D9417AE16CB098483F17E144BFFC7"
-        pkg "dotnet-sdk-8.0.414-osx-x64.pkg"
+        sha256 "02EAF71A1485949B95D8B75E47C92439726E30EBA3565E5DACE0E120E9A2384D"
+        pkg "dotnet-sdk-9.0.305-osx-x64.pkg"
     else
         url "https://builds.dotnet.microsoft.com/dotnet/Sdk/#{version.before_comma}/dotnet-sdk-#{version.before_comma}-osx-arm64.pkg"
-        sha256 "34897089F3F67551F847C5D80D639AB9A50E7DEA05181F57F9F997A5F21FEA2D"
-        pkg "dotnet-sdk-8.0.414-osx-arm64.pkg"
+        sha256 "7BBAF37675331CC58704BD4201800E8049658F4670BA256C86E7C42D49C7389B"
+        pkg "dotnet-sdk-9.0.305-osx-arm64.pkg"
     end
 
-    name ".NET SDK 8.0.414,8.0.20"
+    name ".NET SDK 9.0.305,9.0.9"
     desc "Developer platform"
     homepage "https://www.microsoft.com/net/core#macos"
 
