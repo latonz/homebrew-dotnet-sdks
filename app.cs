@@ -20,8 +20,8 @@ await using var changesSummaryWriter = new StreamWriter(File.OpenWrite(changesSu
 var jsonContext = AppJsonContext.Default;
 
 var state = await LoadState();
-using var client = new HttpClient();
-var releasesIndex = await client.GetFromJsonAsync(releaseIndexUrl, jsonContext.ReleaseIndexList)
+using var httpClient = new HttpClient();
+var releasesIndex = await httpClient.GetFromJsonAsync(releaseIndexUrl, jsonContext.ReleaseIndexList)
     ?? throw new Exception("Could not fetch release index list");
 
 await changesSummaryWriter.WriteLineAsync("Updating formulas");
@@ -30,7 +30,7 @@ Log("processing releases after " + state.LatestReleaseDate);
 
 foreach (var releaseIndex in releasesIndex.ReleasesIndex.Where(x => x.LatestReleaseDate > state.LatestReleaseDate))
 {
-    var releases = await client.GetFromJsonAsync(releaseIndex.ReleasesUrl, jsonContext.ReleaseList)
+    var releases = await httpClient.GetFromJsonAsync(releaseIndex.ReleasesUrl, jsonContext.ReleaseList)
         ?? throw new Exception("Could not fetch releases");
 
     foreach (var release in releases.Releases.Where(x => x.ReleaseDate > state.LatestReleaseDate))
@@ -55,8 +55,8 @@ foreach (var releaseIndex in releasesIndex.ReleasesIndex.Where(x => x.LatestRele
             Product = releaseIndex.Product,
             ReleaseVersion = release.ReleaseVersion,
             SdkVersion = release.Sdk.Version,
-            IntelVariant = hasIntelSdk ? await BuildVariant(client, release, intelSdkFile!) : null,
-            ArmVariant = hasArmSdk ? await BuildVariant(client, release, armSdkFile!) : null,
+            IntelVariant = hasIntelSdk ? await BuildVariant(release, intelSdkFile!) : null,
+            ArmVariant = hasArmSdk ? await BuildVariant(release, armSdkFile!) : null,
         };
 
         await StoreFormula(formula);
@@ -96,11 +96,11 @@ async Task StoreState(State stateToStore)
 
 void Log(string msg) => Console.WriteLine(msg);
 
-async Task<FormulaVariant> BuildVariant(HttpClient httpClient, Release release, ReleaseFile sdkFile)
+async Task<FormulaVariant> BuildVariant(Release release, ReleaseFile sdkFile)
 {
     // we cannot use the provided hash since its sha512
     // but homebrew requires sha256
-    var (sha256, sha512) = await ComputeHash(httpClient, sdkFile.Url);
+    var (sha256, sha512) = await ComputeHash(sdkFile.Url);
     if (!string.Equals(sha512, sdkFile.Hash, StringComparison.OrdinalIgnoreCase))
         throw new Exception($"Hash verification of {sdkFile.Url} failed");
     
@@ -113,7 +113,7 @@ async Task<FormulaVariant> BuildVariant(HttpClient httpClient, Release release, 
     };
 }
 
-async Task<(string Sha256, string Sha512)> ComputeHash(HttpClient httpClient, string url)
+async Task<(string Sha256, string Sha512)> ComputeHash(string url)
 {
     await using var fileStream = await httpClient.GetStreamAsync(url);
 
