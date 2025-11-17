@@ -1,4 +1,4 @@
-#!/usr/bin/env dotnet run
+#!/usr/bin/env -S dotnet run
 #:package NuGet.Versioning@7.0.0
 
 using System.Buffers;
