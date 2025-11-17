@@ -40,11 +40,8 @@ jobs:
 
       - uses: actions/setup-dotnet@v5
         
-      - name: build
-        run: dotnet build
-
       - name: run
-        run: dotnet run --no-build
+        run: ./app.cs
 
       - name: read changes
         id: changes-summary

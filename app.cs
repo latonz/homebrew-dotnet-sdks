@@ -1,3 +1,6 @@
+#!/usr/bin/env dotnet run
+#:package NuGet.Versioning@7.0.0
+
 using System.Buffers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -14,15 +17,11 @@ const string changesSummaryFile = "changes-summary.txt";
 const int hashBufferLength = 4096;
 
 await using var changesSummaryWriter = new StreamWriter(File.OpenWrite(changesSummaryFile));
-var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-{
-    WriteIndented = true,
-    Converters = { NuGetVersionJsonConverter.Instance }
-};
+var jsonContext = AppJsonContext.Default;
 
 var state = await LoadState();
 using var client = new HttpClient();
-var releasesIndex = await client.GetFromJsonAsync<ReleaseIndexList>(releaseIndexUrl, jsonOptions)
+var releasesIndex = await client.GetFromJsonAsync(releaseIndexUrl, jsonContext.ReleaseIndexList)
     ?? throw new Exception("Could not fetch release index list");
 
 await changesSummaryWriter.WriteLineAsync("Updating formulas");
@@ -31,7 +30,7 @@ Log("processing releases after " + state.LatestReleaseDate);
 
 foreach (var releaseIndex in releasesIndex.ReleasesIndex.Where(x => x.LatestReleaseDate > state.LatestReleaseDate))
 {
-    var releases = await client.GetFromJsonAsync<ReleaseList>(releaseIndex.ReleasesUrl, jsonOptions)
+    var releases = await client.GetFromJsonAsync(releaseIndex.ReleasesUrl, jsonContext.ReleaseList)
         ?? throw new Exception("Could not fetch releases");
 
     foreach (var release in releases.Releases.Where(x => x.ReleaseDate > state.LatestReleaseDate))
@@ -60,12 +59,12 @@ foreach (var releaseIndex in releasesIndex.ReleasesIndex.Where(x => x.LatestRele
             ArmVariant = hasArmSdk ? await BuildVariant(client, release, armSdkFile!) : null,
         };
 
-        await StoreFormula(changesSummaryWriter, formula);
+        await StoreFormula(formula);
 
         if (release.Sdk.Version.Equals(releases.LatestSdk))
         {
             formula.Channel = releases.ChannelVersion;
-            await StoreFormula(changesSummaryWriter, formula);
+            await StoreFormula(formula);
         }
     }
 }
@@ -79,7 +78,7 @@ async Task<State> LoadState()
         return new State();
     
     await using var stream = File.OpenRead(stateFile);
-    var loadedState = await JsonSerializer.DeserializeAsync<State>(stream, jsonOptions) ?? new State();
+    var loadedState = await JsonSerializer.DeserializeAsync(stream, jsonContext.State) ?? new State();
 
     if (string.Equals("true", Environment.GetEnvironmentVariable("RESET_LATEST_RELEASE_DATE"), StringComparison.OrdinalIgnoreCase))
     {
@@ -92,7 +91,7 @@ async Task<State> LoadState()
 async Task StoreState(State stateToStore)
 {
     await using var stream = File.Create(stateFile);
-    await JsonSerializer.SerializeAsync(stream, stateToStore, jsonOptions);
+    await JsonSerializer.SerializeAsync(stream, stateToStore, jsonContext.State);
 }
 
 void Log(string msg) => Console.WriteLine(msg);
@@ -138,17 +137,17 @@ async Task<(string Sha256, string Sha512)> ComputeHash(HttpClient httpClient, st
         Convert.ToHexString(sha512.GetCurrentHash()));
 }
 
-async Task StoreFormula(TextWriter changesWriter, Formula formula)
+async Task StoreFormula(Formula formula)
 {
     if (File.Exists(formula.FilePath))
     {
-        Log($"writing updated formula {formula.Id}");
-        await changesWriter.WriteLineAsync("* Updated " + formula.ReleaseVersion);
+        Log($"writing updated formula {formula.ChannelOrSdkVersion}");
+        await changesSummaryWriter.WriteLineAsync("* Updated " + formula.ChannelOrSdkVersion);
     }
     else
     {
-        Log($"adding formula {formula.Id}");
-        await changesWriter.WriteLineAsync("* Added " + formula.ReleaseVersion);
+        Log($"adding formula {formula.ChannelOrSdkVersion}");
+        await changesSummaryWriter.WriteLineAsync("* Added " + formula.ChannelOrSdkVersion);
     }
     
     var formulaStr = BuildFormula(formula);
@@ -325,14 +324,24 @@ class ReleaseFile
     public required string Hash { get; init; }
 }
 
-class NuGetVersionJsonConverter : JsonConverter<NuGetVersion>
+[JsonSourceGenerationOptions(
+    GenerationMode = JsonSourceGenerationMode.Metadata,
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    WriteIndented = true,
+    Converters = new[] { typeof(NuGetVersionJsonConverter) })]
+[JsonSerializable(typeof(State))]
+[JsonSerializable(typeof(ReleaseIndexList))]
+[JsonSerializable(typeof(ReleaseList))]
+internal partial class AppJsonContext : JsonSerializerContext
 {
-    public static readonly NuGetVersionJsonConverter Instance = new();
-    
-    private NuGetVersionJsonConverter()
+}
+
+sealed class NuGetVersionJsonConverter : JsonConverter<NuGetVersion>
+{
+    public NuGetVersionJsonConverter()
     {
     }
-    
+
     public override NuGetVersion? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var versionString = reader.GetString();
